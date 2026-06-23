@@ -7,6 +7,13 @@ import { deleteDeployment } from "./kubernetes/deleteDeployment";
 import { getAppStatus } from "./kubernetes/getStatus";
 import { deleteService } from "./kubernetes/deleteService";
 import { getService } from "./kubernetes/getService";
+import { pool } from "./db/client";
+import {
+  createApplication,
+  deleteApplication,
+  getApplications,
+} from "./db/applications";
+
 
 const app = express();
 
@@ -51,13 +58,28 @@ app.get("/apps/:name/service", async (req, res) => {
 
 app.get("/apps", async (req, res) => {
   try {
-    const deployments = await listDeployments();
-    res.json(deployments);
+    const applications = await getApplications();
+
+    res.json(applications);
   } catch (error) {
     console.error(error);
 
     res.status(500).json({
-      error: "Failed to list deployments",
+      error: "Failed to fetch applications",
+    });
+  }
+});
+
+app.get("/db-test", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Database connection failed",
     });
   }
 });
@@ -68,6 +90,7 @@ app.delete("/apps/:name", async (req, res) => {
 
     await deleteDeployment(name);
     await deleteService(name);
+    await deleteApplication(name);
 
     res.json({
       message: "Application deleted",
@@ -100,9 +123,10 @@ app.post("/apps", async (req, res) => {
 
     await createDeployment(name, image);
     await createService(name);
+    await createApplication(name, image);
 
     res.status(201).json({
-      message: "Deployment and Service created",
+      message: "Application created",
     });
   } catch (error) {
     console.error(error);
